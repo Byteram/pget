@@ -7,7 +7,7 @@
 - Installs apps to `~/.pget/bin/`
 - No `sudo`, no system interference
 - Inspired by `apt`, `pacman`, and `brew`
-- Written 100% in PURE Python (wiht extensions)
+- Written 100% in PURE Python ~(wiht extensions)~
 
 ---
 

@@ -14,6 +14,8 @@ def main():
     parser = argparse.ArgumentParser(description="pget - Pure Python Package Manager")
     parser.add_argument("command", choices=["install", "remove", "list", "upgrade"], help="Command to execute")
     parser.add_argument("app_name", nargs="?", help="Application name")
+    parser.add_argument("-c", "--compile", action="store_true", 
+                       help="Compile the application to binary using Bazel (for install and upgrade)")
     
     args = parser.parse_args()
     
@@ -21,7 +23,7 @@ def main():
         if not args.app_name:
             sys.stderr.write("ERROR: Application name required for install command.\n")
             sys.exit(1)
-        success = install_app(args.app_name)
+        success = install_app(args.app_name, compile_binary=args.compile)
         if not success:
             sys.exit(1)
     
@@ -35,7 +37,7 @@ def main():
         if not args.app_name:
             sys.stderr.write("ERROR: Application name required for upgrade command.\n")
             sys.exit(1)
-        success = upgrade_app(args.app_name)
+        success = upgrade_app(args.app_name, compile_binary=args.compile)
         if not success:
             sys.exit(1)
     

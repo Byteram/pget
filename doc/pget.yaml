@@ -1,0 +1,82 @@
+NAME: pget
+VERSION: 1.0.0
+DESCRIPTION: Cross-platform, Python-native package manager for userland CLI apps
+SYNOPSIS: pget [COMMAND] [APP_NAME]
+USAGE: |
+  pget install <app>     # Install an application
+  pget remove <app>      # Remove an application
+  pget list              # List installed applications
+  pget upgrade <app>     # Upgrade an application
+
+OPTIONS: None
+
+EXAMPLES:
+  - command: pget install timer
+    description: Install the timer application
+    output: "Installing timer...\nSuccessfully installed timer to ~/.pget/bin/timer"
+  
+  - command: pget list
+    description: List all installed applications
+    output: "Installed applications:\n  timer\n  yday"
+  
+  - command: pget remove timer
+    description: Remove the timer application
+    output: "Successfully removed timer"
+
+DESCRIPTION_DETAILED: |
+  pget is a cross-platform, Python-native package manager for userland CLI apps on Linux and macOS.
+  It installs applications to ~/.pget/bin/ and makes them available as executable commands.
+  
+  Applications are downloaded from GitHub repositories under the pynosaur organization.
+  Each application must have an 'app' directory with a main.py file or a single main.py file.
+  
+  The package manager supports both single-file applications (just main.py) and multi-file
+  applications (app directory with multiple files).
+
+FUNCTIONS:
+  setup_pget_directories:
+    description: Creates the pget home directory and bin directory
+    returns: "tuple - (pget_home, bin_dir) Path objects"
+    implementation: "Creates ~/.pget/bin/ directory structure"
+  
+  download_github_repo:
+    description: Downloads a GitHub repository as a ZIP file
+    parameters: "app_name (str) - Name of the application to download"
+    returns: "bytes or None - ZIP file content or None if not found"
+    implementation: "Downloads from https://github.com/pynosaur/{app_name}/archive/refs/heads/main.zip"
+  
+  extract_app_directory:
+    description: Extracts application files from ZIP data
+    parameters: "zip_data (bytes), app_name (str)"
+    returns: "tuple - (main_py_content, app_dir) - Single file content or directory path"
+    implementation: "Extracts ZIP and identifies single-file vs multi-file apps"
+  
+  install_app:
+    description: Installs an application to ~/.pget/bin/
+    parameters: "app_name (str) - Name of the application to install"
+    returns: "bool - True if successful, False otherwise"
+    implementation: "Downloads, extracts, and creates executable launcher"
+  
+  remove_app:
+    description: Removes an installed application
+    parameters: "app_name (str) - Name of the application to remove"
+    returns: "None"
+    implementation: "Removes executable and associated files directory"
+  
+  list_apps:
+    description: Lists all installed applications
+    returns: "None"
+    implementation: "Scans ~/.pget/bin/ for executable files"
+  
+  upgrade_app:
+    description: Upgrades an installed application to the latest version
+    parameters: "app_name (str) - Name of the application to upgrade"
+    returns: "bool - True if successful, False otherwise"
+    implementation: "Downloads latest version and replaces existing installation"
+
+AUTHOR: "Victor Matos"
+LICENSE: "CC0 1.0 Universal"
+REPOSITORY: "https://github.com/pynosaur/pget"
+BUGS: "Report bugs to: https://github.com/pynosaur/pget/issues"
+
+SEE_ALSO: None

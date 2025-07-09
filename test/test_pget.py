@@ -79,25 +79,14 @@ class TestInstallApp(unittest.TestCase):
         mock_exists.side_effect = [False, True, False]  # app_path doesn't exist, app_dir exists, app_files_dir doesn't exist
         mock_iterdir.return_value = [MagicMock(name="main.py")]
         mock_read_text.return_value = "print('Hello World')"
-        
-        # Mock Path constructor to return appropriate mocks
-        mock_app_path = MagicMock()
-        mock_app_path.exists.return_value = False
-        mock_app_dir = MagicMock()
-        mock_app_dir.exists.return_value = True
-        mock_main_file = MagicMock()
-        mock_main_file.name = "main.py"
-        
-        with patch('pathlib.Path') as mock_path:
-            mock_path.side_effect = lambda x: mock_app_path if "test-app" in str(x) else mock_app_dir
-            # Act
-            result = install_app("test-app")
-            # Assert
-            self.assertTrue(result)
-            mock_file.assert_called()
-            mock_chmod.assert_called()
-            call_args = mock_chmod.call_args
-            self.assertEqual(call_args[0][1], 0o755)
+        # Act
+        result = install_app("test-app")
+        # Assert
+        self.assertTrue(result)
+        mock_file.assert_called()
+        mock_chmod.assert_called()
+        call_args = mock_chmod.call_args
+        self.assertEqual(call_args[0][1], 0o755)
     
     @patch('main.setup_pget_directories')
     @patch('pathlib.Path.exists', return_value=True)

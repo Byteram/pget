@@ -42,31 +42,6 @@ def download_github_repo(app_name):
         raise
 
 
-def extract_app_directory(zip_data, app_name):
-    with tempfile.TemporaryDirectory() as temp_dir:
-        zip_path = Path(temp_dir) / f"{app_name}.zip"
-        with open(zip_path, "wb") as f:
-            f.write(zip_data)
-        
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(temp_dir)
-        
-        extracted_dir = Path(temp_dir) / f"{app_name}-main"
-        app_dir = extracted_dir / "app"
-        
-        if not app_dir.exists():
-            return None, None
-        
-        # Check if it's a single-file app (just main.py)
-        app_files = list(app_dir.iterdir())
-        if len(app_files) == 1 and app_files[0].name == "main.py":
-            # Single-file app - return just the content
-            return app_files[0].read_text(), None
-        
-        # Multi-file app - return the entire directory
-        return None, app_dir
-
-
 def install_app(app_name):
     pget_home, bin_dir = setup_pget_directories()
     
@@ -85,31 +60,43 @@ def install_app(app_name):
         sys.stderr.write(f"ERROR: The application {app_name} has no candidate.\n")
         return False
     
-    main_py_content, app_dir = extract_app_directory(zip_data, app_name)
-    if main_py_content is None and app_dir is None:
-        sys.stderr.write(f"ERROR: The application {app_name} has no candidate.\n")
-        return False
-    
-    if main_py_content is not None:
-        # Single-file app
-        with open(app_path, "w") as f:
-            f.write("#!/usr/bin/env python3\n")
-            f.write(main_py_content)
-    else:
-        # Multi-file app
-        app_files_dir = bin_dir / f"{app_name}_files"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        zip_path = Path(temp_dir) / f"{app_name}.zip"
+        with open(zip_path, "wb") as f:
+            f.write(zip_data)
         
-        # Remove existing files if upgrading
-        if app_files_dir.exists():
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(temp_dir)
+        
+        extracted_dir = Path(temp_dir) / f"{app_name}-main"
+        app_dir = extracted_dir / "app"
+        
+        if not app_dir.exists():
+            sys.stderr.write(f"ERROR: The application {app_name} has no candidate.\n")
+            return False
+        
+        # Check if it's a single-file app (just main.py)
+        app_files = list(app_dir.iterdir())
+        if len(app_files) == 1 and app_files[0].name == "main.py":
+            # Single-file app - return just the content
+            with open(app_path, "w") as f:
+                f.write("#!/usr/bin/env python3\n")
+                f.write(app_files[0].read_text())
+        else:
+            # Multi-file app (including those with subdirectories like core/, utils/, etc.)
+            # Return the entire directory as a string path
+            app_files_dir = bin_dir / f"{app_name}_files"
+            
+            # Remove existing files if upgrading
+            if app_files_dir.exists():
+                import shutil
+                shutil.rmtree(app_files_dir)
+            
             import shutil
-            shutil.rmtree(app_files_dir)
-        
-
-        import shutil
-        shutil.copytree(app_dir, app_files_dir)
+            shutil.copytree(app_dir, app_files_dir)
 
 
-        launcher_content = f"""#!/usr/bin/env python3
+            launcher_content = f"""#!/usr/bin/env python3
 import sys
 import os
 from pathlib import Path
@@ -123,9 +110,9 @@ from main import main
 if __name__ == '__main__':
     main()
 """
-        
-        with open(app_path, "w") as f:
-            f.write(launcher_content)
+            
+            with open(app_path, "w") as f:
+                f.write(launcher_content)
     
     os.chmod(app_path, 0o755)
     
@@ -186,31 +173,42 @@ def upgrade_app(app_name):
         sys.stderr.write(f"ERROR: The application {app_name} has no candidate.\n")
         return False
     
-    main_py_content, app_dir = extract_app_directory(zip_data, app_name)
-    if main_py_content is None and app_dir is None:
-        sys.stderr.write(f"ERROR: The application {app_name} has no candidate.\n")
-        return False
-    
-    if main_py_content is not None:
-        # Single-file app
-        with open(app_path, "w") as f:
-            f.write("#!/usr/bin/env python3\n")
-            f.write(main_py_content)
-    else:
-        # Multi-file app
-        app_files_dir = bin_dir / f"{app_name}_files"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        zip_path = Path(temp_dir) / f"{app_name}.zip"
+        with open(zip_path, "wb") as f:
+            f.write(zip_data)
         
-        # Remove existing files if upgrading
-        if app_files_dir.exists():
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(temp_dir)
+        
+        extracted_dir = Path(temp_dir) / f"{app_name}-main"
+        app_dir = extracted_dir / "app"
+        
+        if not app_dir.exists():
+            sys.stderr.write(f"ERROR: The application {app_name} has no candidate.\n")
+            return False
+        
+        # Check if it's a single-file app (just main.py)
+        app_files = list(app_dir.iterdir())
+        if len(app_files) == 1 and app_files[0].name == "main.py":
+            # Single-file app
+            with open(app_path, "w") as f:
+                f.write("#!/usr/bin/env python3\n")
+                f.write(app_files[0].read_text())
+        else:
+            # Multi-file app
+            app_files_dir = bin_dir / f"{app_name}_files"
+            
+            # Remove existing files if upgrading
+            if app_files_dir.exists():
+                import shutil
+                shutil.rmtree(app_files_dir)
+            
             import shutil
-            shutil.rmtree(app_files_dir)
-        
-        # Copy all files from app directory
-        import shutil
-        shutil.copytree(app_dir, app_files_dir)
-        
-        # Create launcher script
-        launcher_content = f"""#!/usr/bin/env python3
+            shutil.copytree(app_dir, app_files_dir)
+            
+            # Create launcher script
+            launcher_content = f"""#!/usr/bin/env python3
 import sys
 import os
 from pathlib import Path
@@ -224,9 +222,9 @@ from main import main
 if __name__ == '__main__':
     main()
 """
-        
-        with open(app_path, "w") as f:
-            f.write(launcher_content)
+            
+            with open(app_path, "w") as f:
+                f.write(launcher_content)
     
     os.chmod(app_path, 0o755)
     

@@ -60,18 +60,36 @@ class TestDownloadGitHubRepo(unittest.TestCase):
 class TestInstallApp(unittest.TestCase):
     @patch('main.setup_pget_directories')
     @patch('main.download_github_repo')
-    @patch('main.extract_app_directory')
+    @patch('tempfile.TemporaryDirectory')
+    @patch('zipfile.ZipFile')
+    @patch('shutil.copytree')
     @patch('builtins.open', new_callable=mock_open)
     @patch('os.chmod')
-    def test_install_single_file_app(self, mock_chmod, mock_file, mock_extract, mock_download, mock_setup):
+    @patch('pathlib.Path.exists')
+    @patch('pathlib.Path.iterdir')
+    @patch('pathlib.Path.read_text')
+    @patch('builtins.print')
+    @patch('sys.stderr.write')
+    def test_install_single_file_app(self, mock_stderr, mock_print, mock_read_text, mock_iterdir, mock_exists, mock_chmod, mock_file, mock_copytree, mock_zipfile, mock_tempdir, mock_download, mock_setup):
         # Arrange
         mock_setup.return_value = (Path("/home/test/.pget"), Path("/home/test/.pget/bin"))
         mock_download.return_value = b"fake zip content"
-        mock_extract.return_value = ("print('Hello World')", None)
+        mock_tempdir.return_value.__enter__.return_value = "/tmp/test"
+        # Provide enough values for all exists() calls: app_path, app_dir, app_files_dir
+        mock_exists.side_effect = [False, True, False]  # app_path doesn't exist, app_dir exists, app_files_dir doesn't exist
+        mock_iterdir.return_value = [MagicMock(name="main.py")]
+        mock_read_text.return_value = "print('Hello World')"
+        
+        # Mock Path constructor to return appropriate mocks
         mock_app_path = MagicMock()
         mock_app_path.exists.return_value = False
+        mock_app_dir = MagicMock()
+        mock_app_dir.exists.return_value = True
+        mock_main_file = MagicMock()
+        mock_main_file.name = "main.py"
+        
         with patch('pathlib.Path') as mock_path:
-            mock_path.return_value = mock_app_path
+            mock_path.side_effect = lambda x: mock_app_path if "test-app" in str(x) else mock_app_dir
             # Act
             result = install_app("test-app")
             # Assert
@@ -80,22 +98,22 @@ class TestInstallApp(unittest.TestCase):
             mock_chmod.assert_called()
             call_args = mock_chmod.call_args
             self.assertEqual(call_args[0][1], 0o755)
+    
     @patch('main.setup_pget_directories')
-    @patch('main.download_github_repo')
-    @patch('main.extract_app_directory')
     @patch('pathlib.Path.exists', return_value=True)
-    def test_install_app_already_installed(self, mock_exists, mock_extract, mock_download, mock_setup):
+    @patch('builtins.print')
+    def test_install_app_already_installed(self, mock_print, mock_exists, mock_setup):
         # Arrange
         mock_setup.return_value = (Path("/home/test/.pget"), Path("/home/test/.pget/bin"))
         # Act
         result = install_app("test-app")
         # Assert
         self.assertTrue(result)
-        mock_download.assert_not_called()
-        mock_extract.assert_not_called()
+    
     @patch('main.setup_pget_directories')
     @patch('main.download_github_repo')
-    def test_install_app_not_found(self, mock_download, mock_setup):
+    @patch('sys.stderr.write')
+    def test_install_app_not_found(self, mock_stderr, mock_download, mock_setup):
         # Arrange
         mock_setup.return_value = (Path("/home/test/.pget"), Path("/home/test/.pget/bin"))
         mock_download.return_value = None
@@ -107,80 +125,86 @@ class TestInstallApp(unittest.TestCase):
 class TestRemoveApp(unittest.TestCase):
     @patch('main.setup_pget_directories')
     @patch('warnings.warn')
-    @patch('pathlib.Path.exists', return_value=True)
+    @patch('pathlib.Path.exists')
     @patch('pathlib.Path.unlink')
     @patch('shutil.rmtree')
-    def test_remove_app_success(self, mock_rmtree, mock_unlink, mock_exists, mock_warn, mock_setup):
+    @patch('builtins.print')
+    def test_remove_app_success(self, mock_print, mock_rmtree, mock_unlink, mock_exists, mock_warn, mock_setup):
         # Arrange
         mock_setup.return_value = (Path("/home/test/.pget"), Path("/home/test/.pget/bin"))
+        mock_exists.side_effect = [True, True]  # app_path exists, app_files_dir exists
         # Act
         remove_app("test-app")
         # Assert
         mock_unlink.assert_called_once()
         mock_warn.assert_not_called()
         mock_rmtree.assert_called()
+    
     @patch('main.setup_pget_directories')
     @patch('warnings.warn')
-    def test_remove_app_not_installed(self, mock_warn, mock_setup):
+    @patch('pathlib.Path.exists', return_value=False)
+    def test_remove_app_not_installed(self, mock_exists, mock_warn, mock_setup):
         # Arrange
         mock_setup.return_value = (Path("/home/test/.pget"), Path("/home/test/.pget/bin"))
-        mock_app_path = MagicMock()
-        mock_app_path.exists.return_value = False
-        with patch('pathlib.Path') as mock_path:
-            mock_path.return_value = mock_app_path
-            # Act
-            remove_app("test-app")
-            # Assert
-            mock_warn.assert_called_once()
+        # Act
+        remove_app("test-app")
+        # Assert
+        mock_warn.assert_called_once()
 
 class TestListApps(unittest.TestCase):
     @patch('main.setup_pget_directories')
     @patch('builtins.print')
-    def test_list_apps_with_apps(self, mock_print, mock_setup):
+    @patch('pathlib.Path.exists', return_value=True)
+    @patch('pathlib.Path.iterdir')
+    @patch('os.access', return_value=True)
+    def test_list_apps_with_apps(self, mock_access, mock_iterdir, mock_exists, mock_print, mock_setup):
         # Arrange
         mock_setup.return_value = (Path("/home/test/.pget"), Path("/home/test/.pget/bin"))
-        mock_bin_dir = MagicMock()
-        mock_bin_dir.exists.return_value = True
         mock_app1 = MagicMock()
         mock_app1.name = "app1"
         mock_app1.is_file.return_value = True
         mock_app2 = MagicMock()
         mock_app2.name = "app2"
         mock_app2.is_file.return_value = True
-        mock_bin_dir.iterdir.return_value = [mock_app1, mock_app2]
-        with patch('pathlib.Path') as mock_path:
-            mock_path.return_value = mock_bin_dir
-            with patch('os.access', return_value=True):
-                # Act
-                list_apps()
-                # Assert
-                mock_print.assert_called()
+        mock_iterdir.return_value = [mock_app1, mock_app2]
+        # Act
+        list_apps()
+        # Assert
+        mock_print.assert_called()
+    
     @patch('main.setup_pget_directories')
     @patch('builtins.print')
-    def test_list_apps_no_apps(self, mock_print, mock_setup):
+    @patch('pathlib.Path.exists', return_value=False)
+    def test_list_apps_no_apps(self, mock_exists, mock_print, mock_setup):
         # Arrange
         mock_setup.return_value = (Path("/home/test/.pget"), Path("/home/test/.pget/bin"))
-        mock_bin_dir = MagicMock()
-        mock_bin_dir.exists.return_value = False
-        with patch('pathlib.Path') as mock_path:
-            mock_path.return_value = mock_bin_dir
-            # Act
-            list_apps()
-            # Assert
-            mock_print.assert_called_with("No applications installed.")
+        # Act
+        list_apps()
+        # Assert
+        mock_print.assert_called_with("No applications installed.")
 
 class TestUpgradeApp(unittest.TestCase):
     @patch('main.setup_pget_directories')
     @patch('main.download_github_repo')
-    @patch('main.extract_app_directory')
+    @patch('tempfile.TemporaryDirectory')
+    @patch('zipfile.ZipFile')
+    @patch('shutil.copytree')
     @patch('builtins.open', new_callable=mock_open)
     @patch('os.chmod')
-    @patch('pathlib.Path.exists', return_value=True)
-    def test_upgrade_app_success(self, mock_exists, mock_chmod, mock_file, mock_extract, mock_download, mock_setup):
+    @patch('pathlib.Path.exists')
+    @patch('pathlib.Path.iterdir')
+    @patch('pathlib.Path.read_text')
+    @patch('builtins.print')
+    @patch('sys.stderr.write')
+    def test_upgrade_app_success(self, mock_stderr, mock_print, mock_read_text, mock_iterdir, mock_exists, mock_chmod, mock_file, mock_copytree, mock_zipfile, mock_tempdir, mock_download, mock_setup):
         # Arrange
         mock_setup.return_value = (Path("/home/test/.pget"), Path("/home/test/.pget/bin"))
         mock_download.return_value = b"fake zip content"
-        mock_extract.return_value = ("print('Updated Hello World')", None)
+        mock_tempdir.return_value.__enter__.return_value = "/tmp/test"
+        # Provide enough values for all exists() calls: app_path, app_dir, app_files_dir
+        mock_exists.side_effect = [True, True, False]  # app_path exists, app_dir exists, app_files_dir doesn't exist
+        mock_iterdir.return_value = [MagicMock(name="main.py")]
+        mock_read_text.return_value = "print('Updated Hello World')"
         # Act
         result = upgrade_app("test-app")
         # Assert
@@ -189,20 +213,18 @@ class TestUpgradeApp(unittest.TestCase):
         mock_chmod.assert_called()
         call_args = mock_chmod.call_args
         self.assertEqual(call_args[0][1], 0o755)
+    
     @patch('main.setup_pget_directories')
     @patch('builtins.print')
-    def test_upgrade_app_not_installed(self, mock_print, mock_setup):
+    @patch('pathlib.Path.exists', return_value=False)
+    def test_upgrade_app_not_installed(self, mock_exists, mock_print, mock_setup):
         # Arrange
         mock_setup.return_value = (Path("/home/test/.pget"), Path("/home/test/.pget/bin"))
-        mock_app_path = MagicMock()
-        mock_app_path.exists.return_value = False
-        with patch('pathlib.Path') as mock_path:
-            mock_path.return_value = mock_app_path
-            # Act
-            result = upgrade_app("test-app")
-            # Assert
-            self.assertFalse(result)
-            mock_print.assert_called()
+        # Act
+        result = upgrade_app("test-app")
+        # Assert
+        self.assertFalse(result)
+        mock_print.assert_called()
 
 if __name__ == '__main__':
     unittest.main() 

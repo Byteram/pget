@@ -1,0 +1,9 @@
+load("@rules_python//python:defs.bzl", "py_library")
+
+py_library(
+    name = "package_manager",
+    srcs = ["package_manager.py"],
+    visibility = ["//visibility:public"],
+)
+
+exports_files(["package_manager.py"]) 

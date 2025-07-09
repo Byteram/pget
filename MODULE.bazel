@@ -1,0 +1,12 @@
+bazel_dep(name = "rules_python", version = "0.40.0")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.9")
+
+# Add Nuitka dependency
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    name = "pip",
+    requirements_lock = "//:requirements.lock",
+)
+use_repo(pip, "pip") 

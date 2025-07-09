@@ -1,0 +1,18 @@
+# Enable Python support
+build --enable_platform_specific_config
+
+# Python configuration
+build:macos --python_version=PY3
+build:linux --python_version=PY3
+build:windows --python_version=PY3
+
+# Test configuration
+test --test_output=errors
+test --verbose_failures
+
+# Build configuration
+build --verbose_failures
+build --show_timestamps
+
+# Enable remote caching (optional)
+# build --remote_cache=grpc://your-cache-server:8080 

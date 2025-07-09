@@ -8,7 +8,7 @@ from unittest.mock import patch, MagicMock, mock_open
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "app"))
 
-from main import (
+from core.package_manager import (
     setup_pget_directories,
     download_github_repo,
     install_app,
@@ -58,8 +58,8 @@ class TestDownloadGitHubRepo(unittest.TestCase):
         self.assertIsNone(result)
 
 class TestInstallApp(unittest.TestCase):
-    @patch('main.setup_pget_directories')
-    @patch('main.download_github_repo')
+    @patch('core.package_manager.setup_pget_directories')
+    @patch('core.package_manager.download_github_repo')
     @patch('tempfile.TemporaryDirectory')
     @patch('zipfile.ZipFile')
     @patch('shutil.copytree')
@@ -88,7 +88,7 @@ class TestInstallApp(unittest.TestCase):
         call_args = mock_chmod.call_args
         self.assertEqual(call_args[0][1], 0o755)
     
-    @patch('main.setup_pget_directories')
+    @patch('core.package_manager.setup_pget_directories')
     @patch('pathlib.Path.exists', return_value=True)
     @patch('builtins.print')
     def test_install_app_already_installed(self, mock_print, mock_exists, mock_setup):
@@ -99,8 +99,8 @@ class TestInstallApp(unittest.TestCase):
         # Assert
         self.assertTrue(result)
     
-    @patch('main.setup_pget_directories')
-    @patch('main.download_github_repo')
+    @patch('core.package_manager.setup_pget_directories')
+    @patch('core.package_manager.download_github_repo')
     @patch('sys.stderr.write')
     def test_install_app_not_found(self, mock_stderr, mock_download, mock_setup):
         # Arrange
@@ -112,7 +112,7 @@ class TestInstallApp(unittest.TestCase):
         self.assertFalse(result)
 
 class TestRemoveApp(unittest.TestCase):
-    @patch('main.setup_pget_directories')
+    @patch('core.package_manager.setup_pget_directories')
     @patch('warnings.warn')
     @patch('pathlib.Path.exists')
     @patch('pathlib.Path.unlink')
@@ -129,7 +129,7 @@ class TestRemoveApp(unittest.TestCase):
         mock_warn.assert_not_called()
         mock_rmtree.assert_called()
     
-    @patch('main.setup_pget_directories')
+    @patch('core.package_manager.setup_pget_directories')
     @patch('warnings.warn')
     @patch('pathlib.Path.exists', return_value=False)
     def test_remove_app_not_installed(self, mock_exists, mock_warn, mock_setup):
@@ -141,7 +141,7 @@ class TestRemoveApp(unittest.TestCase):
         mock_warn.assert_called_once()
 
 class TestListApps(unittest.TestCase):
-    @patch('main.setup_pget_directories')
+    @patch('core.package_manager.setup_pget_directories')
     @patch('builtins.print')
     @patch('pathlib.Path.exists', return_value=True)
     @patch('pathlib.Path.iterdir')
@@ -161,7 +161,7 @@ class TestListApps(unittest.TestCase):
         # Assert
         mock_print.assert_called()
     
-    @patch('main.setup_pget_directories')
+    @patch('core.package_manager.setup_pget_directories')
     @patch('builtins.print')
     @patch('pathlib.Path.exists', return_value=False)
     def test_list_apps_no_apps(self, mock_exists, mock_print, mock_setup):
@@ -173,8 +173,8 @@ class TestListApps(unittest.TestCase):
         mock_print.assert_called_with("No applications installed.")
 
 class TestUpgradeApp(unittest.TestCase):
-    @patch('main.setup_pget_directories')
-    @patch('main.download_github_repo')
+    @patch('core.package_manager.setup_pget_directories')
+    @patch('core.package_manager.download_github_repo')
     @patch('tempfile.TemporaryDirectory')
     @patch('zipfile.ZipFile')
     @patch('shutil.copytree')
@@ -203,7 +203,7 @@ class TestUpgradeApp(unittest.TestCase):
         call_args = mock_chmod.call_args
         self.assertEqual(call_args[0][1], 0o755)
     
-    @patch('main.setup_pget_directories')
+    @patch('core.package_manager.setup_pget_directories')
     @patch('builtins.print')
     @patch('pathlib.Path.exists', return_value=False)
     def test_upgrade_app_not_installed(self, mock_exists, mock_print, mock_setup):

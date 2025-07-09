@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import zipfile
+import tempfile
+import warnings
+import urllib.request
+from pathlib import Path
+
+
+def setup_pget_directories():
+    """Creates the pget home directory and bin directory"""
+    pget_home = Path.home() / ".pget"
+    bin_dir = pget_home / "bin"
+    
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    
+    return pget_home, bin_dir
+
+
+def download_github_repo(app_name):
+    """Downloads a GitHub repository as a ZIP file"""
+    url = f"https://github.com/pynosaur/{app_name}/archive/refs/heads/main.zip"
+    
+    try:
+        with urllib.request.urlopen(url) as response:
+            return response.read()
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise
+
+
+def install_app(app_name):
+    """Installs an application to ~/.pget/bin/"""
+    pget_home, bin_dir = setup_pget_directories()
+    
+    app_path = bin_dir / app_name
+    
+    if app_path.exists():
+        print(f"{app_name} is already installed at {app_path}")
+        print("Use 'pget upgrade {app_name}' to update to the latest version.")
+        return True
+    
+    print(f"Installing {app_name}...")
+    
+    zip_data = download_github_repo(app_name)
+    if zip_data is None:
+        sys.stderr.write(f"ERROR: The application {app_name} has no candidate.\n")
+        return False
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        zip_path = Path(temp_dir) / f"{app_name}.zip"
+        with open(zip_path, "wb") as f:
+            f.write(zip_data)
+        
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(temp_dir)
+        
+        extracted_dir = Path(temp_dir) / f"{app_name}-main"
+        app_dir = extracted_dir / "app"
+        
+        if not app_dir.exists():
+            sys.stderr.write(f"ERROR: The application {app_name} has no candidate.\n")
+            return False
+        
+        # Check if it's a single-file app (just main.py)
+        app_files = list(app_dir.iterdir())
+        if len(app_files) == 1 and app_files[0].name == "main.py":
+            # Single-file app - return just the content
+            with open(app_path, "w") as f:
+                f.write("#!/usr/bin/env python3\n")
+                f.write(app_files[0].read_text())
+        else:
+            # Multi-file app (including those with subdirectories like core/, utils/, etc.)
+            # Return the entire directory as a string path
+            app_files_dir = bin_dir / f"{app_name}_files"
+            
+            # Remove existing files if upgrading
+            if app_files_dir.exists():
+                import shutil
+                shutil.rmtree(app_files_dir)
+            
+            import shutil
+            shutil.copytree(app_dir, app_files_dir)
+
+            launcher_content = f"""#!/usr/bin/env python3
+import sys
+import os
+from pathlib import Path
+
+# Add the app files directory to Python path
+app_files_dir = Path(__file__).parent / "{app_name}_files"
+sys.path.insert(0, str(app_files_dir))
+
+# Import and run main
+from main import main
+if __name__ == '__main__':
+    main()
+"""
+            
+            with open(app_path, "w") as f:
+                f.write(launcher_content)
+    
+    os.chmod(app_path, 0o755)
+    
+    print(f"Successfully installed {app_name} to {app_path}")
+    return True
+
+
+def remove_app(app_name):
+    """Removes an installed application"""
+    pget_home, bin_dir = setup_pget_directories()
+    
+    app_path = bin_dir / app_name
+    app_files_dir = bin_dir / f"{app_name}_files"
+    
+    if app_path.exists():
+        app_path.unlink()
+        print(f"Successfully removed {app_name}")
+        
+        # Also remove the files directory if it exists (multi-file app)
+        if app_files_dir.exists():
+            import shutil
+            shutil.rmtree(app_files_dir)
+            print(f"Removed {app_name} files directory")
+    else:
+        warnings.warn(f"The application {app_name} is not installed.")
+
+
+def list_apps():
+    """Lists all installed applications"""
+    pget_home, bin_dir = setup_pget_directories()
+    
+    if not bin_dir.exists():
+        print("No applications installed.")
+        return
+    
+    apps = [f.name for f in bin_dir.iterdir() if f.is_file() and os.access(f, os.X_OK)]
+    
+    if not apps:
+        print("No applications installed.")
+        return
+    
+    print("Installed applications:")
+    for app in sorted(apps):
+        print(f"  {app}")
+
+
+def upgrade_app(app_name):
+    """Upgrades an installed application to the latest version"""
+    pget_home, bin_dir = setup_pget_directories()
+    
+    app_path = bin_dir / app_name
+    
+    if not app_path.exists():
+        print(f"{app_name} is not installed. Use 'pget install {app_name}' to install it.")
+        return False
+    
+    print(f"Upgrading {app_name}...")
+    
+    zip_data = download_github_repo(app_name)
+    if zip_data is None:
+        sys.stderr.write(f"ERROR: The application {app_name} has no candidate.\n")
+        return False
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        zip_path = Path(temp_dir) / f"{app_name}.zip"
+        with open(zip_path, "wb") as f:
+            f.write(zip_data)
+        
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            zip_ref.extractall(temp_dir)
+        
+        extracted_dir = Path(temp_dir) / f"{app_name}-main"
+        app_dir = extracted_dir / "app"
+        
+        if not app_dir.exists():
+            sys.stderr.write(f"ERROR: The application {app_name} has no candidate.\n")
+            return False
+        
+        # Check if it's a single-file app (just main.py)
+        app_files = list(app_dir.iterdir())
+        if len(app_files) == 1 and app_files[0].name == "main.py":
+            # Single-file app
+            with open(app_path, "w") as f:
+                f.write("#!/usr/bin/env python3\n")
+                f.write(app_files[0].read_text())
+        else:
+            # Multi-file app
+            app_files_dir = bin_dir / f"{app_name}_files"
+            
+            # Remove existing files if upgrading
+            if app_files_dir.exists():
+                import shutil
+                shutil.rmtree(app_files_dir)
+            
+            import shutil
+            shutil.copytree(app_dir, app_files_dir)
+            
+            # Create launcher script
+            launcher_content = f"""#!/usr/bin/env python3
+import sys
+import os
+from pathlib import Path
+
+# Add the app files directory to Python path
+app_files_dir = Path(__file__).parent / "{app_name}_files"
+sys.path.insert(0, str(app_files_dir))
+
+# Import and run main
+from main import main
+if __name__ == '__main__':
+    main()
+"""
+            
+            with open(app_path, "w") as f:
+                f.write(launcher_content)
+    
+    os.chmod(app_path, 0o755)
+    
+    print(f"Successfully upgraded {app_name} to {app_path}")
+    return True 

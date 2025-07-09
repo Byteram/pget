@@ -1,0 +1,19 @@
+load("@rules_python//python:defs.bzl", "py_library")
+
+genrule(
+    name = "pget_bin",
+    srcs = ["main.py", "//app/core:package_manager.py"],
+    outs = ["pget"],
+    cmd = "PYTHONPATH= PYTHONPATH=$(location //app/core:package_manager.py):$$PYTHONPATH python3 -m nuitka --standalone --onefile --static-libpython=no --output-filename=pget $(location main.py) --output-dir=$(GENDIR)/app",
+    output_to_bindir = True,
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "app",
+    srcs = ["main.py"],
+    deps = [
+        "//app/core:package_manager",
+    ],
+    visibility = ["//visibility:public"],
+) 

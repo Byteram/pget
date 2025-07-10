@@ -12,37 +12,48 @@ from core.package_manager import (
 
 def main():
     parser = argparse.ArgumentParser(description="pget - Pure Python Package Manager")
-    parser.add_argument("command", choices=["install", "remove", "list", "upgrade"], help="Command to execute")
-    parser.add_argument("app_name", nargs="?", help="Application name")
-    parser.add_argument("-c", "--compile", action="store_true", 
-                       help="Compile the application to binary using Bazel (for install and upgrade)")
+    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
+    
+    # Install command
+    install_parser = subparsers.add_parser("install", help="Install an application")
+    install_parser.add_argument("app_name", help="Application name")
+    install_parser.add_argument("-c", "--compile", action="store_true", 
+                               help="Compile the application to binary using Bazel")
+    
+    # Remove command
+    remove_parser = subparsers.add_parser("remove", help="Remove an application")
+    remove_parser.add_argument("app_name", help="Application name")
+    
+    # List command
+    subparsers.add_parser("list", help="List installed applications")
+    
+    # Upgrade command
+    upgrade_parser = subparsers.add_parser("upgrade", help="Upgrade an application")
+    upgrade_parser.add_argument("app_name", help="Application name")
+    upgrade_parser.add_argument("-c", "--compile", action="store_true", 
+                               help="Compile the application to binary using Bazel")
     
     args = parser.parse_args()
     
     if args.command == "install":
-        if not args.app_name:
-            sys.stderr.write("ERROR: Application name required for install command.\n")
-            sys.exit(1)
         success = install_app(args.app_name, compile_binary=args.compile)
         if not success:
             sys.exit(1)
     
     elif args.command == "remove":
-        if not args.app_name:
-            sys.stderr.write("ERROR: Application name required for remove command.\n")
-            sys.exit(1)
         remove_app(args.app_name)
     
     elif args.command == "upgrade":
-        if not args.app_name:
-            sys.stderr.write("ERROR: Application name required for upgrade command.\n")
-            sys.exit(1)
         success = upgrade_app(args.app_name, compile_binary=args.compile)
         if not success:
             sys.exit(1)
     
     elif args.command == "list":
         list_apps()
+    
+    else:
+        parser.print_help()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

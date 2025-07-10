@@ -4,7 +4,7 @@ genrule(
     name = "pget_bin",
     srcs = ["main.py", "//app/core:package_manager.py"],
     outs = ["pget"],
-    cmd = "PYTHONPATH= PYTHONPATH=$(location //app/core:package_manager.py):$$PYTHONPATH python3 -m nuitka --standalone --onefile --static-libpython=no --output-filename=pget $(location main.py) --output-dir=$(GENDIR)/app",
+    cmd = "PYTHONPATH= PYTHONPATH=$(location //app/core:package_manager.py):$$PYTHONPATH python3 -m nuitka --standalone --onefile --static-libpython=no --no-deployment-flag=self-execution --output-filename=pget $(location main.py) --output-dir=$(GENDIR)/app",
     output_to_bindir = True,
     visibility = ["//visibility:public"],
 )
